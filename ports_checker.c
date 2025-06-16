@@ -7,7 +7,46 @@
 
 #define BUFFER_SIZE 1024
 
-const int dangerous_ports[] = {22, 23, 80, 443, 139, 445, 3389, 4444, 5555, 31337};
+const int dangerous_ports[] = {
+    21,    // FTP
+    22,    // SSH
+    23,    // Telnet
+    25,    // SMTP
+    80,    // HTTP
+    110,   // POP3
+    111,   // RPC
+    135,   // MSRPC
+    139,   // NetBIOS
+    143,   // IMAP
+    161,   // SNMP
+    389,   // LDAP
+    443,   // HTTPS
+    445,   // SMB
+    465,   // SMTP SSL
+    587,   // SMTP Submission
+    993,   // IMAP SSL
+    995,   // POP3 SSL
+    1433,  // MSSQL
+    1521,  // Oracle DB
+    2049,  // NFS
+    3306,  // MySQL
+    3389,  // RDP
+    4444,  // Metasploit
+    5000,  // UPnP
+    5432,  // PostgreSQL
+    5555,  // Android ADB
+    5900,  // VNC
+    6379,  // Redis
+    8080,  // HTTP Proxy
+    8443,  // HTTPS Alt
+    8888,  // HTTP Alt
+    9000,  // PHP-FPM
+    9090,  // WebSphere
+    11211, // Memcached
+    27017, // MongoDB
+    31337, // Backdoor
+    49152  // Windows RPC
+};
 const int num_dangerous_ports = sizeof(dangerous_ports) / sizeof(int);
 
 int is_dangerous(int port) {
@@ -98,19 +137,65 @@ int check_ports() {
             printf(PORT_GUARD "Threat: ");
 
             switch (port) {
+            case 21:
+                printf("FTP brute-force/anonymous login 📂");
+                break;
             case 22:
                 printf("SSH brute-force attacks 🪓");
                 break;
             case 23:
-                printf("Cleartext credentials 📜");
+                printf("Cleartext credentials (Telnet) 📜");
+                break;
+            case 25:
+                printf("SMTP open relay/spam abuse 📧");
                 break;
             case 80:
-            case 443:
-                printf("Web server vulnerabilities 🕸️");
+                printf("Web server vulnerabilities (HTTP) 🕸️");
+                break;
+            case 110:
+                printf("POP3 cleartext credentials 💌");
+                break;
+            case 111:
+                printf("RPC service vulnerabilities 🌀");
+                break;
+            case 135:
+                printf("Windows RPC exploits 🪟");
                 break;
             case 139:
             case 445:
-                printf("EternalBlue exploits 💣");
+                printf("EternalBlue/SMB exploits 💣");
+                break;
+            case 143:
+                printf("IMAP cleartext credentials 📨");
+                break;
+            case 161:
+                printf("SNMP default community strings 📡");
+                break;
+            case 389:
+                printf("LDAP injection/brute-force attacks 🔓");
+                break;
+            case 443:
+                printf("HTTPS vulnerabilities/SSL stripping 🔒");
+                break;
+            case 465:
+            case 587:
+                printf("SMTP auth brute-force attacks 📤");
+                break;
+            case 993:
+            case 995:
+                printf("Email service brute-force attacks 📭");
+                break;
+            case 1433:
+                printf("SQL Server brute-force attacks 🗄️");
+                break;
+            case 1521:
+                printf("Oracle DB TNS poison attacks 🐉");
+                break;
+            case 2049:
+                printf("NFS unauthorized access 🗂️");
+                break;
+            case 3306:
+                printf("MySQL brute-force attacks 🐬");
                 break;
             case 3389:
                 printf("RDP brute-forcing 💻");
@@ -118,11 +203,45 @@ int check_ports() {
             case 4444:
                 printf("Metasploit payloads 🧨");
                 break;
+            case 5000:
+                printf("UPnP control abuse 🎛️");
+                break;
+            case 5432:
+                printf("PostgreSQL exploits 🐘");
+                break;
             case 5555:
                 printf("Android backdoors 📱");
                 break;
+            case 5900:
+                printf("VNC screen capture/control 👁️");
+                break;
+            case 6379:
+                printf("Redis unauthorized access 🧠");
+                break;
+            case 8080:
+            case 8888:
+                printf("Proxy abuse/web attacks 🕸️");
+                break;
+            case 8443:
+                printf("HTTPS MITM attacks 🎭");
+                break;
+            case 9000:
+                printf("PHP-FPM remote code execution 🐘");
+                break;
+            case 9090:
+                printf("WebSphere administrative access ⚙️");
+                break;
+            case 11211:
+                printf("Memcached amplification attacks 📦");
+                break;
+            case 27017:
+                printf("MongoDB unauthorized access 🍃");
+                break;
             case 31337:
                 printf("Classic backdoor port 🕵️");
+                break;
+            case 49152:
+                printf("Windows RPC dynamic ports exploit 🪟");
                 break;
             default:
                 printf("Known backdoor/exploitable service ⚠️");
