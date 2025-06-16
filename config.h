@@ -1,8 +1,6 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-
-
 #define CPU_THRESHOLD 70.0
 #define MEM_THRESHOLD 50.0
 #define SAMPLE_TIME_SECONDS 12
@@ -30,4 +28,4 @@ const char *TRUSTED_PROCESSES[] = {
 // Number of trusted processes
 #define N_TRUSTED (sizeof(TRUSTED_PROCESSES) / sizeof(TRUSTED_PROCESSES[0]))
 
-#endif // CONFIG_H
+#endif

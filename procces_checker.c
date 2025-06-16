@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "config.h"
+#include "common.h"
 
 typedef struct {
     int pid;
@@ -22,13 +23,11 @@ void process_check() {
     ProcessData processes[MAX_PROCESSES];
     int process_count = 0;
 
-    printf("Monitoring processes for %d seconds...\n", SAMPLE_TIME_SECONDS);
-    
+    printf(PROCESS_WATCH "Inspecting kingdom's processes for %d seconds...\n", SAMPLE_TIME_SECONDS);
     
     for (int i = 0; i < MAX_PROCESSES; i++) {
         processes[i].pid = -1;
     }
-
     
     for (int sample = 0; sample < SAMPLE_TIME_SECONDS; sample++) {
         FILE *ps = popen("ps -eo pid,pcpu,pmem,comm --no-headers", "r");
@@ -43,10 +42,8 @@ void process_check() {
             float pcpu, pmem;
             char comm[MAX_COMMAND_LENGTH];
             
-            
             if (sscanf(line, "%d %f %f %127s", &pid, &pcpu, &pmem, comm) != 4) 
                 continue;
-
             
             int slot = -1;
             for (int i = 0; i < MAX_PROCESSES; i++) {
@@ -80,31 +77,28 @@ void process_check() {
         }
     }
 
-    printf("\nSuspicious processes (exceeding thresholds):\n");
-    printf("CPU > %.1f%% or MEM > %.1f%%\n", CPU_THRESHOLD, MEM_THRESHOLD);
+    printf(PROCESS_WATCH "\nSuspicious processes (exceeding royal thresholds):\n");
+    printf(PROCESS_WATCH "CPU > %.1f%% or MEM > %.1f%%\n", CPU_THRESHOLD, MEM_THRESHOLD);
     printf("--------------------------------------------\n");
     
     int detected = 0;
     for (int i = 0; i < MAX_PROCESSES; i++) {
         if (processes[i].pid == -1) continue;
         
-        
         float avg_cpu = (processes[i].cpu_sum)/SAMPLE_TIME_SECONDS;
         float avg_mem = (processes[i].mem_sum)/SAMPLE_TIME_SECONDS;
             
         if ((avg_cpu > CPU_THRESHOLD || avg_mem > MEM_THRESHOLD)
-        & !contains_string(TRUSTED_PROCESSES,processes[i].command) ) {
-           
-            printf("PID: %d\n", processes[i].pid);
-            printf("Command: %s\n", processes[i].command);
-            printf("Avg CPU: %5.1f%%, Avg MEM: %5.1f%%\n", avg_cpu, avg_mem);
+        && !contains_string(TRUSTED_PROCESSES,processes[i].command) ) {
+            printf(PROCESS_WATCH ALERT "Traitor detected! PID: %d\n", processes[i].pid);
+            printf(PROCESS_WATCH "Command: %s\n", processes[i].command);
+            printf(PROCESS_WATCH "Avg CPU: %5.1f%%, Avg MEM: %5.1f%%\n", avg_cpu, avg_mem);
             printf("--------------------------------------------\n");
             detected = 1;
-            }
         }
+    }
     
     if (!detected) {
-        printf("No suspicious processes found\n");
+        printf(PROCESS_WATCH "Kingdom is secure! No suspicious processes found\n");
     }
 }
-
