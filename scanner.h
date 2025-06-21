@@ -22,7 +22,7 @@ typedef struct {
 } Scanner;
 
 // Initialization and control
-void scanner_init(Scanner *scanner, USBMonitor *monitor, ScannerConfig *config);
+void scanner_init(Scanner *scanner, USBMonitor *monitor, ScannerConfig *config, float size_change_threshold, int max_file_copies, float change_percentage_threshold, int scan_interval);
 void scanner_start(Scanner *scanner);
 void scanner_stop(Scanner *scanner);
 

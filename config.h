@@ -1,8 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define CPU_THRESHOLD 70.0
-#define MEM_THRESHOLD 50.0
+
 #define SAMPLE_TIME_SECONDS 12
 #define MAX_PROCESSES 1024
 #define MAX_LINE_LENGTH 256

@@ -149,9 +149,6 @@ int check_ports() {
             case 25:
                 printf("SMTP open relay/spam abuse 📧");
                 break;
-            case 80:
-                printf("Web server vulnerabilities (HTTP) 🕸️");
-                break;
             case 110:
                 printf("POP3 cleartext credentials 💌");
                 break;
