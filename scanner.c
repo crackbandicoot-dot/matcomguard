@@ -14,48 +14,57 @@
 #include <fnmatch.h>
 
 // Estructura mejorada para agrupar copias
-typedef struct FileGroup {
+typedef struct FileGroup
+{
     unsigned char hash[SHA256_DIGEST_LENGTH];
     int count;
-    char **file_paths;      // Lista dinámica de rutas
-    int paths_allocated;    // Espacio asignado
+    char **file_paths;   // Lista dinámica de rutas
+    int paths_allocated; // Espacio asignado
     struct FileGroup *next;
 } FileGroup;
 
 // Función recursiva para recolectar archivos
-static void collect_files(const char *dir_path, FileGroup **groups, ScannerConfig *config) {
+static void collect_files(const char *dir_path, FileGroup **groups, ScannerConfig *config)
+{
     DIR *dir = opendir(dir_path);
-    if (!dir) return;
+    if (!dir)
+        return;
 
     struct dirent *entry;
     char full_path[4096];
 
-    while ((entry = readdir(dir)) != NULL) {
+    while ((entry = readdir(dir)) != NULL)
+    {
         // Ignorar . y ..
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) 
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
 
         snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
 
         // Verificar si está excluido
-        if (is_excluded(entry->d_name)) {
+        if (is_excluded(entry->d_name))
+        {
             continue;
         }
 
         struct stat stat_buf;
-        if (lstat(full_path, &stat_buf) != 0) {
+        if (lstat(full_path, &stat_buf) != 0)
+        {
             continue;
         }
 
         // Procesar directorios recursivamente
-        if (S_ISDIR(stat_buf.st_mode)) {
+        if (S_ISDIR(stat_buf.st_mode))
+        {
             collect_files(full_path, groups, config);
-        } 
+        }
         // Procesar archivos regulares
-        else if (S_ISREG(stat_buf.st_mode)) {
+        else if (S_ISREG(stat_buf.st_mode))
+        {
             // Calcular hash SHA-256
             unsigned char file_hash[SHA256_DIGEST_LENGTH];
-            if (compute_sha256(full_path, file_hash) != 0) {
+            if (compute_sha256(full_path, file_hash) != 0)
+            {
                 continue;
             }
 
@@ -63,9 +72,11 @@ static void collect_files(const char *dir_path, FileGroup **groups, ScannerConfi
             FileGroup *group = *groups;
             FileGroup *prev = NULL;
             int found = 0;
-            
-            while (group) {
-                if (memcmp(group->hash, file_hash, SHA256_DIGEST_LENGTH) == 0) {
+
+            while (group)
+            {
+                if (memcmp(group->hash, file_hash, SHA256_DIGEST_LENGTH) == 0)
+                {
                     found = 1;
                     break;
                 }
@@ -74,22 +85,25 @@ static void collect_files(const char *dir_path, FileGroup **groups, ScannerConfi
             }
 
             // Crear nuevo grupo si no existe
-            if (!found) {
+            if (!found)
+            {
                 group = malloc(sizeof(FileGroup));
-                if (!group) continue;
-                
+                if (!group)
+                    continue;
+
                 memcpy(group->hash, file_hash, SHA256_DIGEST_LENGTH);
                 group->count = 0;
                 group->paths_allocated = 10;
-                group->file_paths = malloc(group->paths_allocated * sizeof(char*));
+                group->file_paths = malloc(group->paths_allocated * sizeof(char *));
                 group->next = *groups;
                 *groups = group;
             }
 
             // Agregar archivo al grupo
-            if (group->count >= group->paths_allocated) {
+            if (group->count >= group->paths_allocated)
+            {
                 group->paths_allocated *= 2;
-                group->file_paths = realloc(group->file_paths, group->paths_allocated * sizeof(char*));
+                group->file_paths = realloc(group->file_paths, group->paths_allocated * sizeof(char *));
             }
             group->file_paths[group->count] = strdup(full_path);
             group->count++;
@@ -98,37 +112,60 @@ static void collect_files(const char *dir_path, FileGroup **groups, ScannerConfi
     closedir(dir);
 }
 
+static BaselineEntry *find_entry_by_basename(Baseline *baseline, const char *basename)
+{
+    BaselineEntry *entry = baseline->entries;
+    while (entry)
+    {
+        if (strcmp(entry->basename, basename) == 0)
+        {
+            return entry;
+        }
+        entry = entry->next;
+    }
+    return NULL;
+}
+
 // Detección mejorada de replicación
-static void detect_file_copies(const char *mount_point, ScannerConfig *config) {
+static void detect_file_copies(const char *mount_point, ScannerConfig *config)
+{
     FileGroup *groups = NULL;
-    
+
     // Paso 1: Recolectar todos los archivos
     collect_files(mount_point, &groups, config);
-    
+
     // Paso 2: Verificar grupos que exceden el límite
     FileGroup *current = groups;
-    while (current) {
-        if (current->count > config->max_file_copies) {
+    while (current)
+    {
+        if (current->count > config->max_file_copies)
+        {
             printf(ROYAL_GUARD SUSPICIOUS "Files being massively replicated at %s\n", mount_point);
-            printf(ROYAL_GUARD INFO "A total of %d copies have been detected (Limit set at %d copies)\n", 
+            printf(ROYAL_GUARD INFO "A total of %d copies have been detected (Limit set at %d copies)\n",
                    current->count, config->max_file_copies);
-            
+
             // Imprimir todas las rutas
-            for (int i = 0; i < current->count; i++) {
-                if (i == 0) {
+            for (int i = 0; i < current->count; i++)
+            {
+                if (i == 0)
+                {
                     printf(ROYAL_GUARD INFO "Original: %s\n", current->file_paths[i]);
-                } else {
+                }
+                else
+                {
                     printf(ROYAL_GUARD INFO "Copy %d: %s\n", i, current->file_paths[i]);
                 }
             }
         }
         current = current->next;
     }
-    
+
     // Liberar memoria
-    while (groups) {
+    while (groups)
+    {
         FileGroup *next = groups->next;
-        for (int i = 0; i < groups->count; i++) {
+        for (int i = 0; i < groups->count; i++)
+        {
             free(groups->file_paths[i]);
         }
         free(groups->file_paths);
@@ -241,6 +278,78 @@ static void compare_file(const BaselineEntry *entry,
     struct stat stat_buf;
     if (lstat(full_path, &stat_buf) != 0)
     {
+        char *dir_path = strdup(full_path);
+        char *file_name = strrchr(dir_path, '/');
+        char *old_ext = strrchr(file_name, '.');
+
+        if (file_name && old_ext)
+        {
+            *file_name = '\0'; // Aísla el directorio
+            file_name++;       // Apunta al nombre del archivo
+
+            // Extraer nombre base (sin extensión)
+            size_t base_len = old_ext - file_name;
+            char *base_name = strndup(file_name, base_len);
+
+            DIR *dir = opendir(dir_path);
+            if (dir)
+            {
+                struct dirent *dp;
+                while ((dp = readdir(dir)))
+                {
+                    // Ignorar directorios especiales
+                    if (strcmp(dp->d_name, ".") == 0 || strcmp(dp->d_name, "..") == 0)
+                        continue;
+
+                    // Verificar si coincide el nombre base
+                    char *new_ext = strrchr(dp->d_name, '.');
+                    if (new_ext)
+                    {
+                        size_t new_base_len = new_ext - dp->d_name;
+                        if (new_base_len == base_len &&
+                            strncmp(dp->d_name, base_name, base_len) == 0)
+                        {
+                            // Construir ruta candidata
+                            char candidate_path[4096];
+                            snprintf(candidate_path, sizeof(candidate_path),
+                                     "%s/%s", dir_path, dp->d_name);
+
+                            // Calcular hash del candidato
+                            unsigned char candidate_hash[SHA256_DIGEST_LENGTH];
+                            if (compute_sha256(candidate_path, candidate_hash) == 0)
+                            {
+                                // Verificar si es el mismo archivo
+                                if (memcmp(entry->metadata.sha256, candidate_hash,
+                                           SHA256_DIGEST_LENGTH) == 0)
+                                {
+                                    printf(ROYAL_GUARD MODIFIED "%s -> %s (Extension change)\n",
+                                           entry->path, dp->d_name);
+
+                                    const char *extension = new_ext + 1; // Saltar el punto
+                                    if (strcasecmp(extension, "sh") == 0 ||
+                                        strcasecmp(extension, "exe") == 0 ||
+                                        strcasecmp(extension, "bat") == 0 ||
+                                        strcasecmp(extension, "js") == 0)
+                                    {
+                                        printf(ROYAL_GUARD SUSPICIOUS "¡File converted to an executable format: %s! %s\n",
+                                               extension, candidate_path);
+                                    }
+                                    (*changed_count)++;
+                                    closedir(dir);
+                                    free(base_name);
+                                    free(dir_path);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+                closedir(dir);
+            }
+            free(base_name);
+        }
+        free(dir_path);
+
         // File deleted
         printf(ROYAL_GUARD DELETED "%s\n", entry->path);
         (*changed_count)++;
@@ -442,7 +551,7 @@ void scan_device(DeviceList *device, ScannerConfig *config)
     // Check change threshold
     if (total_files > 0)
     {
-        double change_percentage = (double)(changed_files / total_files)*100;
+        double change_percentage = (double)(changed_files / total_files) * 100;
         if (change_percentage > config->change_percentage_threshold)
         {
             printf(ROYAL_GUARD ALERT "Treachery in %s! %.0f%% of files altered 🔥\n",

@@ -19,6 +19,7 @@ typedef struct {
 // Baseline entry (individual file)
 typedef struct BaselineEntry {
     char *path;
+    char *basename;
     FileMetadata metadata;
     struct BaselineEntry *next;
 } BaselineEntry;
