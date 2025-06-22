@@ -22,9 +22,9 @@ pthread_mutex_t cleanup_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct
 {
-    float size_change_threshold;
+    int size_change_threshold;
     int max_file_copies;
-    float change_percentage_threshold;
+    int change_percentage_threshold;
     int scan_interval;
 } USB_Thresholds;
 USB_Thresholds *Thresholds;
@@ -88,10 +88,10 @@ void *usb_patrol_thread_function(void *arg)
 
     // Scanner configuration
     ScannerConfig config = {
-        .size_change_threshold = 500.0,
-        .max_file_copies = 5,
-        .change_percentage_threshold = 0.05,
-        .scan_interval = 60};
+        .size_change_threshold = Thresholds->size_change_threshold,
+        .max_file_copies = Thresholds->max_file_copies,
+        .change_percentage_threshold = Thresholds->change_percentage_threshold,
+        .scan_interval = Thresholds->scan_interval};
 
     Scanner *scanner = malloc(sizeof(Scanner));
     if (!scanner)
@@ -101,7 +101,7 @@ void *usb_patrol_thread_function(void *arg)
         return NULL;
     }
 
-    scanner_init(scanner, monitor, &config, Thresholds->size_change_threshold, Thresholds->max_file_copies, Thresholds->change_percentage_threshold, Thresholds->scan_interval);
+    scanner_init(scanner, monitor, &config);
     scanner_start(scanner);
     global_scanner = scanner;
 
@@ -319,7 +319,7 @@ int main()
     }
     if (scan_interval == 0)
     {
-        scan_interval = 30;
+        scan_interval = 20;
     }
     if (size_change_threshold == 0)
     {

@@ -44,7 +44,7 @@ typedef struct DeviceList {
 // Status indicators
 #define ALERT         COLOR_RED "⚠️ ALERT! " COLOR_RESET
 #define SUSPICIOUS    COLOR_YELLOW "🔍 SUSPICIOUS! " COLOR_RESET
-#define INFO          COLOR_BLUE "ℹ️ " COLOR_RESET
+#define INFO          COLOR_BLUE "ℹ️  " COLOR_RESET
 #define DELETED       COLOR_MAGENTA "🗑️ DELETED! " COLOR_RESET
 #define MODIFIED      COLOR_YELLOW "✏️ MODIFIED! " COLOR_RESET
 #define NEW_FILE      COLOR_GREEN "📄 NEW! " COLOR_RESET

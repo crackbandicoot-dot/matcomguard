@@ -13,6 +13,130 @@
 #include <pthread.h>
 #include <fnmatch.h>
 
+// Estructura mejorada para agrupar copias
+typedef struct FileGroup {
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    int count;
+    char **file_paths;      // Lista dinámica de rutas
+    int paths_allocated;    // Espacio asignado
+    struct FileGroup *next;
+} FileGroup;
+
+// Función recursiva para recolectar archivos
+static void collect_files(const char *dir_path, FileGroup **groups, ScannerConfig *config) {
+    DIR *dir = opendir(dir_path);
+    if (!dir) return;
+
+    struct dirent *entry;
+    char full_path[4096];
+
+    while ((entry = readdir(dir)) != NULL) {
+        // Ignorar . y ..
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) 
+            continue;
+
+        snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, entry->d_name);
+
+        // Verificar si está excluido
+        if (is_excluded(entry->d_name)) {
+            continue;
+        }
+
+        struct stat stat_buf;
+        if (lstat(full_path, &stat_buf) != 0) {
+            continue;
+        }
+
+        // Procesar directorios recursivamente
+        if (S_ISDIR(stat_buf.st_mode)) {
+            collect_files(full_path, groups, config);
+        } 
+        // Procesar archivos regulares
+        else if (S_ISREG(stat_buf.st_mode)) {
+            // Calcular hash SHA-256
+            unsigned char file_hash[SHA256_DIGEST_LENGTH];
+            if (compute_sha256(full_path, file_hash) != 0) {
+                continue;
+            }
+
+            // Buscar grupo existente
+            FileGroup *group = *groups;
+            FileGroup *prev = NULL;
+            int found = 0;
+            
+            while (group) {
+                if (memcmp(group->hash, file_hash, SHA256_DIGEST_LENGTH) == 0) {
+                    found = 1;
+                    break;
+                }
+                prev = group;
+                group = group->next;
+            }
+
+            // Crear nuevo grupo si no existe
+            if (!found) {
+                group = malloc(sizeof(FileGroup));
+                if (!group) continue;
+                
+                memcpy(group->hash, file_hash, SHA256_DIGEST_LENGTH);
+                group->count = 0;
+                group->paths_allocated = 10;
+                group->file_paths = malloc(group->paths_allocated * sizeof(char*));
+                group->next = *groups;
+                *groups = group;
+            }
+
+            // Agregar archivo al grupo
+            if (group->count >= group->paths_allocated) {
+                group->paths_allocated *= 2;
+                group->file_paths = realloc(group->file_paths, group->paths_allocated * sizeof(char*));
+            }
+            group->file_paths[group->count] = strdup(full_path);
+            group->count++;
+        }
+    }
+    closedir(dir);
+}
+
+// Detección mejorada de replicación
+static void detect_file_copies(const char *mount_point, ScannerConfig *config) {
+    FileGroup *groups = NULL;
+    
+    // Paso 1: Recolectar todos los archivos
+    collect_files(mount_point, &groups, config);
+    
+    // Paso 2: Verificar grupos que exceden el límite
+    FileGroup *current = groups;
+    while (current) {
+        if (current->count > config->max_file_copies) {
+            printf(ROYAL_GUARD SUSPICIOUS "Files being massively replicated at %s\n", mount_point);
+            printf(ROYAL_GUARD INFO "A total of %d copies have been detected (Limit set at %d copies)\n", 
+                   current->count, config->max_file_copies);
+            
+            // Imprimir todas las rutas
+            for (int i = 0; i < current->count; i++) {
+                if (i == 0) {
+                    printf(ROYAL_GUARD INFO "Original: %s\n", current->file_paths[i]);
+                } else {
+                    printf(ROYAL_GUARD INFO "Copy %d: %s\n", i, current->file_paths[i]);
+                }
+            }
+        }
+        current = current->next;
+    }
+    
+    // Liberar memoria
+    while (groups) {
+        FileGroup *next = groups->next;
+        for (int i = 0; i < groups->count; i++) {
+            free(groups->file_paths[i]);
+        }
+        free(groups->file_paths);
+        free(groups);
+        groups = next;
+    }
+}
+
 // Exclusion list (system files/dirs)
 static const char *excluded_patterns[] = {
     "System Volume Information/*",
@@ -24,7 +148,7 @@ static const char *excluded_patterns[] = {
     NULL};
 
 // Check if path should be excluded
-static int is_excluded(const char *path)
+int is_excluded(const char *path)
 {
     for (int i = 0; excluded_patterns[i] != NULL; i++)
     {
@@ -44,8 +168,8 @@ static int path_exists(const char *path)
 }
 
 // Optimized hash calculation
-static int compute_sha256(const char *file_path,
-                          unsigned char *output)
+int compute_sha256(const char *file_path,
+                   unsigned char *output)
 {
     FILE *file = fopen(file_path, "rb");
     if (!file)
@@ -207,7 +331,7 @@ static void compare_file(const BaselineEntry *entry,
         }
         if (content_changed)
         {
-            printf(ROYAL_GUARD ALERT "Content changed: %s\n", entry->path);
+            printf(ROYAL_GUARD INFO "Content changed: %s\n", entry->path);
         }
         (*changed_count)++;
     }
@@ -312,10 +436,13 @@ void scan_device(DeviceList *device, ScannerConfig *config)
     // 2. Detect new files (recursively)
     detect_new_files_recursive(device->mount_point, "", device->baseline, config, &changed_files);
 
+    // 3. Detect file copies
+    detect_file_copies(device->mount_point, config);
+
     // Check change threshold
     if (total_files > 0)
     {
-        double change_percentage = (double)changed_files / total_files;
+        double change_percentage = (double)(changed_files / total_files)*100;
         if (change_percentage > config->change_percentage_threshold)
         {
             printf(ROYAL_GUARD ALERT "Treachery in %s! %.0f%% of files altered 🔥\n",
@@ -363,17 +490,13 @@ static void *scanner_thread(void *arg)
     return NULL;
 }
 
-void scanner_init(Scanner *scanner, USBMonitor *monitor, ScannerConfig *config, float size_change_threshold, int max_file_copies, float change_percentage_threshold, int scan_interval) {
+void scanner_init(Scanner *scanner, USBMonitor *monitor, ScannerConfig *config)
+{
     memset(scanner, 0, sizeof(Scanner));
     scanner->monitor = monitor;
-    if (config) {
+    if (config)
+    {
         scanner->config = *config;
-    } else {
-        // Default values
-        scanner->config.size_change_threshold = size_change_threshold;  // 1000x growth
-        scanner->config.max_file_copies = max_file_copies;             // Max 3 copies
-        scanner->config.change_percentage_threshold = change_percentage_threshold; // 10% changes
-        scanner->config.scan_interval = scan_interval;              // 30 seconds
     }
 }
 
